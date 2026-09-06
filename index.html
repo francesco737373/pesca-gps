@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b6b4f">
+<meta name="description" content="PESCA GPS - gestione eventi di pesca, GPS, tracce e catture">
+<link rel="manifest" href="manifest.webmanifest">
+<title>PESCA GPS</title>
+<style>
+:root{--bg:#f3f6f5;--card:#fff;--ink:#10201a;--muted:#60716a;--accent:#0b6b4f;--danger:#c62828;--line:#dbe4e0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--accent);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+header b{font-size:20px} header small{opacity:.85}
+main{max-width:760px;margin:auto;padding:14px 14px 90px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #0000000b}
+h2{font-size:18px;margin:0 0 12px}h3{font-size:15px;margin:12px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat{padding:12px;background:#f6f9f8;border-radius:12px}.stat strong{display:block;font-size:21px}.muted{color:var(--muted);font-size:13px}
+button{border:0;border-radius:12px;padding:12px 14px;font-weight:700;background:var(--accent);color:#fff;font-size:15px}
+button.secondary{background:#e7efeb;color:var(--accent)}button.danger{background:var(--danger)}
+button:disabled{opacity:.45} .row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:120px}
+input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff}
+label{display:block;font-size:13px;font-weight:700;margin:9px 0 5px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:center;z-index:6}
+nav button{background:transparent;color:var(--muted);border-radius:0;flex:1;max-width:150px;padding:10px 4px;font-size:12px}
+nav button.active{color:var(--accent);font-weight:800}
+#map{height:330px;border-radius:14px;background:#dfe8e4;position:relative;overflow:hidden;border:1px solid var(--line)}
+#dot{position:absolute;width:18px;height:18px;border-radius:50%;background:#1565c0;border:3px solid #fff;box-shadow:0 1px 5px #0006;display:none}
+#zone{position:absolute;inset:15% 12%;border:3px dashed var(--accent);border-radius:38% 55% 42% 48%;background:#0b6b4f18}
+.warn{padding:10px;border-radius:10px;background:#fff3cd;color:#735500;margin-top:10px;font-size:13px}
+.ok{padding:10px;border-radius:10px;background:#e4f5eb;color:#075c40;margin-top:10px;font-size:13px}
+.error{padding:10px;border-radius:10px;background:#fde8e8;color:#8b1e1e;margin-top:10px;font-size:13px}
+ul{padding-left:20px} .hidden{display:none!important}
+.catch{border-top:1px solid var(--line);padding:10px 0}.catch:first-child{border-top:0}
+</style>
+</head>
+<body>
+<header><div><b>🎣 PESCA GPS</b><br><small>Web App / PWA v1.0</small></div><span id="online">●</span></header>
+<main>
+<section id="home" class="page">
+<div class="card"><h2>Benvenuto</h2><p>Prima versione funzionante per testare GPS, traccia, evento e catture direttamente dal telefono.</p>
+<div id="secureMsg" class="warn hidden">Per il GPS reale devi aprire PESCA GPS tramite <b>HTTPS</b> (ad esempio GitHub Pages) e concedere il permesso di posizione.</div>
+<div class="row"><button onclick="showPage('gps')">📍 Avvia GPS</button><button class="secondary" onclick="showPage('event')">🏁 Crea evento</button></div></div>
+<div class="card"><h2>Stato</h2><div class="grid">
+<div class="stat"><span class="muted">GPS</span><strong id="homeGps">Fermo</strong></div>
+<div class="stat"><span class="muted">Punti traccia</span><strong id="homePts">0</strong></div>
+<div class="stat"><span class="muted">Distanza</span><strong id="homeDist">0 m</strong></div>
+<div class="stat"><span class="muted">Catture</span><strong id="homeCatch">0</strong></div>
+</div></div>
+</section>
+
+<section id="gps" class="page hidden">
+<div class="card"><h2>📍 GPS</h2>
+<div class="grid">
+<div class="stat"><span class="muted">Latitudine</span><strong id="lat">—</strong></div>
+<div class="stat"><span class="muted">Longitudine</span><strong id="lon">—</strong></div>
+<div class="stat"><span class="muted">Precisione</span><strong id="acc">—</strong></div>
+<div class="stat"><span class="muted">Velocità</span><strong id="speed">—</strong></div>
+<div class="stat"><span class="muted">Direzione</span><strong id="heading">—</strong></div>
+<div class="stat"><span class="muted">Altitudine</span><strong id="alt">—</strong></div>
+</div>
+<div id="gpsMsg" class="muted" style="margin-top:10px">GPS non avviato.</div>
+<div class="row" style="margin-top:12px"><button id="startGps" onclick="startGPS()">▶ Avvia GPS</button><button class="danger" onclick="stopGPS()">■ Ferma</button></div>
+</div>
+<div class="card"><h2>Traccia</h2><div class="grid"><div class="stat"><span class="muted">Punti</span><strong id="pts">0</strong></div><div class="stat"><span class="muted">Distanza</span><strong id="dist">0 m</strong></div></div><div class="row" style="margin-top:12px"><button onclick="downloadGPX()">⬇️ Esporta GPX</button><button class="secondary" onclick="clearTrack()">🗑️ Azzera</button></div></div>
+<div class="card"><h2>Vista GPS</h2><div id="map"><div id="zone"></div><div id="dot"></div></div><p class="muted">La mappa grafica è una vista di test. La cartografia reale verrà collegata nella prossima versione.</p></div>
+</section>
+
+<section id="event" class="page hidden">
+<div class="card"><h2>🏁 Crea evento</h2>
+<label>Nome evento</label><input id="evName" placeholder="Gara PESCA GPS">
+<label>Data</label><input id="evDate" type="date">
+<div class="row"><div><label>Inizio</label><input id="evStart" type="time" value="08:00"></div><div><label>Fine</label><input id="evEnd" type="time" value="14:00"></div></div>
+<div class="row"><div><label>Distanza minima costa (m)</label><input id="minDist" type="number" value="0"></div><div><label>Distanza massima costa (m)</label><input id="maxDist" type="number" value="0"></div></div>
+<div class="row"><div><label>Velocità massima (km/h)</label><input id="maxSpeed" type="number" value="0"></div><div><label>Max partecipanti</label><input id="maxPart" type="number" value="20"></div></div>
+<label>Mezzo</label><select id="vessel"><option>Kayak</option><option>Barca</option><option>Kayak / Barca</option></select>
+<label>Tecniche ammesse</label><input id="tech" placeholder="Traina, bolentino, spinning...">
+<div class="row" style="margin-top:12px"><button onclick="saveEvent()">💾 Salva evento</button><button class="secondary" onclick="loadEvent()">↻ Carica</button></div>
+<div id="eventMsg"></div></div>
+<div class="card"><h2>Evento salvato</h2><pre id="eventView" style="white-space:pre-wrap;font-family:inherit">Nessun evento.</pre></div>
+</section>
+
+<section id="catch" class="page hidden">
+<div class="card"><h2>🎣 Registra cattura</h2>
+<label>Specie</label><input id="species" placeholder="Tonno, sgombro, ricciola...">
+<div class="row"><div><label>Peso (kg)</label><input id="weight" type="number" step="0.01"></div><div><label>Lunghezza (cm)</label><input id="length" type="number" step="0.1"></div></div>
+<label>Note</label><input id="notes" placeholder="Esca, tecnica, condizioni...">
+<div class="row" style="margin-top:12px"><button onclick="saveCatch()">➕ Salva cattura</button><button class="secondary" onclick="clearCatches()">🗑️ Cancella</button></div>
+</div>
+<div class="card"><h2>Catture</h2><div id="catches">Nessuna cattura.</div></div>
+</section>
+
+<section id="more" class="page hidden">
+<div class="card"><h2>📲 Installa PESCA GPS</h2><p class="muted">Se Chrome rende disponibile l’installazione, usa il pulsante qui sotto.</p><button id="installBtn" class="secondary" onclick="installPWA()" disabled>Installa app</button><div id="installMsg" class="muted" style="margin-top:10px">Controllo installazione…</div></div><div class="card"><h2>⚙️ PESCA GPS</h2><p>Questa è la prima PWA di test. I dati di traccia, evento e catture sono salvati localmente nel browser.</p>
+<h3>Funzioni già presenti</h3><ul><li>GPS reale ad alta accuratezza</li><li>Registrazione traccia locale</li><li>Distanza percorsa</li><li>Esportazione GPX</li><li>Creazione evento</li><li>Registrazione catture con coordinate GPS</li><li>Funzionamento offline per i dati locali</li></ul>
+<h3>Prossimi moduli</h3><ul><li>Cartografia reale e disegno poligoni</li><li>QR evento</li><li>Partecipazione multi-telefono in tempo reale</li><li>Geofence geografico con 100 m di preallarme</li><li>Console organizzatore</li><li>Ranking e modalità spettatore</li><li>SOS e sincronizzazione server</li></ul>
+</div>
+</section>
+</main>
+<nav>
+<button class="active" onclick="showPage('home')">🏠<br>Home</button>
+<button onclick="showPage('gps')">📍<br>GPS</button>
+<button onclick="showPage('event')">🏁<br>Evento</button>
+<button onclick="showPage('catch')">🎣<br>Catture</button>
+<button onclick="showPage('more')">⚙️<br>Altro</button>
+</nav>
+<script>
+const $=id=>document.getElementById(id);
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;$('installBtn').disabled=false;$('installMsg').textContent='PESCA GPS può essere installata come app.';});
+window.addEventListener('appinstalled',()=>{$('installMsg').textContent='PESCA GPS è installata.';$('installBtn').disabled=true;});
+async function installPWA(){if(deferredInstallPrompt){deferredInstallPrompt.prompt();const r=await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;$('installBtn').disabled=true;$('installMsg').textContent=r.outcome==='accepted'?'Installazione avviata.':'Installazione annullata.';}else{$('installMsg').textContent='Chrome non ha reso disponibile il prompt automatico. Usa ⋮ → Installa app / Aggiungi alla schermata Home.';}}
+let watchId=null, last=null, track=JSON.parse(localStorage.getItem('pgps_track')||'[]');
+let catches=JSON.parse(localStorage.getItem('pgps_catches')||'[]');
+let eventData=JSON.parse(localStorage.getItem('pgps_event')||'null');
+function showPage(id){document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));$(id).classList.remove('hidden');document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));const i=['home','gps','event','catch','more'].indexOf(id);if(i>=0)document.querySelectorAll('nav button')[i].classList.add('active');if(id==='catch')renderCatches();if(id==='event')renderEvent();}
+function hav(a,b){const R=6371000, p=Math.PI/180, dlat=(b.lat-a.lat)*p, dlon=(b.lon-a.lon)*p, x=Math.sin(dlat/2)**2+Math.cos(a.lat*p)*Math.cos(b.lat*p)*Math.sin(dlon/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+function totalDist(){let d=0;for(let i=1;i<track.length;i++)d+=hav(track[i-1],track[i]);return d;}
+function fmtDist(m){return m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';}
+function updateStats(){const d=totalDist();$('pts').textContent=track.length;$('dist').textContent=fmtDist(d);$('homePts').textContent=track.length;$('homeDist').textContent=fmtDist(d);$('homeCatch').textContent=catches.length;}
+function startGPS(){
+ if(!window.isSecureContext){$('gpsMsg').textContent='⚠️ Apri questa app con HTTPS (GitHub Pages) per usare il GPS.';return;}
+ if(!navigator.geolocation){$('gpsMsg').textContent='Il browser non supporta la geolocalizzazione.';return;}
+ if(watchId!==null)return;
+ $('gpsMsg').textContent='Richiesta posizione…';
+ watchId=navigator.geolocation.watchPosition(pos=>{
+  const c={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy,time:new Date(pos.timestamp).toISOString(),speed:pos.coords.speed,heading:pos.coords.heading,alt:pos.coords.altitude};
+  $('lat').textContent=c.lat.toFixed(6);$('lon').textContent=c.lon.toFixed(6);$('acc').textContent=Math.round(c.acc)+' m';$('speed').textContent=c.speed==null?'—':(c.speed*3.6).toFixed(1)+' km/h';$('heading').textContent=c.heading==null?'—':Math.round(c.heading)+'°';$('alt').textContent=c.alt==null?'—':Math.round(c.alt)+' m';
+  $('gpsMsg').textContent='GPS attivo • ultimo aggiornamento '+new Date(pos.timestamp).toLocaleTimeString();
+  $('homeGps').textContent='Attivo';
+  if(!last || hav(last,c)>=3){track.push(c);last=c;localStorage.setItem('pgps_track',JSON.stringify(track));updateStats();}
+  $('dot').style.display='block';$('dot').style.left=(50+(c.lon%0.01)*3000)+'%';$('dot').style.top=(50-(c.lat%0.01)*3000)+'%';
+ },err=>{$('gpsMsg').textContent='GPS: '+err.message;$('homeGps').textContent='Errore';},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+}
+function stopGPS(){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}$('homeGps').textContent='Fermo';$('gpsMsg').textContent='GPS fermato.';}
+function clearTrack(){if(confirm('Azzero la traccia?')){track=[];last=null;localStorage.removeItem('pgps_track');updateStats();}}
+function downloadGPX(){if(!track.length){alert('Nessun punto da esportare.');return;}let s='<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="PESCA GPS" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>PESCA GPS</name><trkseg>';for(const p of track)s+=`<trkpt lat="${p.lat}" lon="${p.lon}"><time>${p.time}</time>${p.alt!=null?`<ele>${p.alt}</ele>`:''}</trkpt>`;s+='</trkseg></trk></gpx>';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'application/gpx+xml'}));a.download='pesca-gps-traccia.gpx';a.click();}
+function saveEvent(){eventData={name:$('evName').value||'Evento PESCA GPS',date:$('evDate').value,start:$('evStart').value,end:$('evEnd').value,minDist:+$('minDist').value,maxDist:+$('maxDist').value,maxSpeed:+$('maxSpeed').value,maxPart:+$('maxPart').value,vessel:$('vessel').value,tech:$('tech').value,id:'PGPS-'+Date.now().toString(36).toUpperCase()};localStorage.setItem('pgps_event',JSON.stringify(eventData));renderEvent();$('eventMsg').className='ok';$('eventMsg').textContent='Evento salvato sul dispositivo.';}
+function loadEvent(){renderEvent();}
+function renderEvent(){if(!eventData){$('eventView').textContent='Nessun evento.';return;}$('eventView').textContent=JSON.stringify(eventData,null,2);}
+function saveCatch(){const c={id:Date.now(),species:$('species').value||'Cattura',weight:$('weight').value,length:$('length').value,notes:$('notes').value,time:new Date().toISOString(),lat:last?.lat??null,lon:last?.lon??null};catches.unshift(c);localStorage.setItem('pgps_catches',JSON.stringify(catches));$('species').value='';$('weight').value='';$('length').value='';$('notes').value='';renderCatches();updateStats();}
+function renderCatches(){if(!catches.length){$('catches').textContent='Nessuna cattura.';return;}$('catches').innerHTML=catches.map(c=>`<div class="catch"><b>🎣 ${escapeHtml(c.species)}</b><br><span class="muted">${c.weight?c.weight+' kg • ':''}${c.length?c.length+' cm • ':''}${new Date(c.time).toLocaleString()}${c.lat!=null?` • ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`:''}</span>${c.notes?'<br>'+escapeHtml(c.notes):''}</div>`).join('');}
+function clearCatches(){if(confirm('Cancello tutte le catture?')){catches=[];localStorage.removeItem('pgps_catches');renderCatches();updateStats();}}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+$('secureMsg').classList.toggle('hidden',window.isSecureContext);
+$('online').textContent=navigator.onLine?'● Online':'● Offline';window.addEventListener('online',()=>{$('online').textContent='● Online'});window.addEventListener('offline',()=>{$('online').textContent='● Offline'});
+updateStats();renderEvent();renderCatches();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body>
+</html>
