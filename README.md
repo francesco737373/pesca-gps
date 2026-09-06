@@ -1,0 +1,1 @@
+PESCA GPS PWA 1.2 — icone PNG 192/512, manifest corretto e service worker aggiornato.
