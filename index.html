@@ -1,0 +1,90 @@
+<!doctype html><html lang="it"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07111c"><link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png"><link rel="apple-touch-icon" href="./icon-192.png">
+<title>PESCA GPS</title>
+<style>body{margin:0;background:#07111c;color:#eef7fb;font-family:Arial}main{max-width:650px;margin:auto;padding:20px}.c{background:#102333;border:1px solid #29485c;border-radius:18px;padding:18px;margin:14px 0}button{padding:13px 16px;border:0;border-radius:12px;font-weight:bold;background:#16a8c9;color:white}button:disabled{opacity:.45}.s{color:#a9c6d4;margin-top:10px}</style>
+</head><body><main>
+<div class="c"><h1>PESCA GPS</h1><div>Web App / PWA v1.3</div></div>
+<div class="c"><h2>📲 Installa PESCA GPS</h2><p>Versione PWA corretta per Android.</p>
+<button id="i" disabled>Installa app</button><div id="s" class="s">Controllo installazione…</div>
+</div>
+<div class="c"><h2>GPS</h2><button id="g">Avvia GPS</button><div id="gs" class="s">GPS non avviato.</div></div>
+</main><script>
+let dp=null,i=document.getElementById("i"),s=document.getElementById("s");
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();dp=e;i.disabled=false;s.textContent="Installazione disponibile. Premi “Installa app”."});
+addEventListener("appinstalled",()=>{dp=null;i.disabled=true;s.textContent="PESCA GPS è stata installata."});
+i.onclick=async()=>{if(!dp){s.textContent="Usa Chrome → ⋮ → Installa e crea scorciatoia → Installa";return}dp.prompt();let r=await dp.userChoice;s.textContent=r.outcome==="accepted"?"Installazione avviata.":"Installazione annullata.";dp=null;i.disabled=true};
+g.onclick=()=>navigator.geolocation.watchPosition(p=>{let c=p.coords;document.getElementById("gs").textContent=`GPS OK — ${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)} · ±${Math.round(c.accuracy)} m`},e=>document.getElementById("gs").textContent="Errore GPS: "+e.message,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+if("serviceWorker"in navigator) navigator.serviceWorker.register("./sw.js",{scope:"./"});
+</script>
+<section class="card" id="gps-card">
+  <h2>📍 GPS reale</h2>
+  <p id="gps-status">GPS fermo. Premi “Avvia GPS”.</p>
+  <div class="grid">
+    <div><strong>Latitudine</strong><span id="gps-lat">—</span></div>
+    <div><strong>Longitudine</strong><span id="gps-lon">—</span></div>
+    <div><strong>Precisione</strong><span id="gps-acc">—</span></div>
+    <div><strong>Altitudine</strong><span id="gps-alt">—</span></div>
+    <div><strong>Velocità</strong><span id="gps-speed">—</span></div>
+    <div><strong>Direzione</strong><span id="gps-heading">—</span></div>
+    <div><strong>Distanza</strong><span id="gps-distance">0 m</span></div>
+    <div><strong>Punti traccia</strong><span id="gps-points">0</span></div>
+  </div>
+  <div class="row">
+    <button id="gps-start">▶ Avvia GPS</button>
+    <button id="gps-stop" disabled>■ Ferma GPS</button>
+    <button id="gps-clear">🗑 Azzera traccia</button>
+  </div>
+  <small>La posizione viene registrata localmente sul telefono. Questa versione è il test GPS reale; la sincronizzazione tra più telefoni arriverà nel passo successivo.</small>
+</section>
+<script>
+(() => {
+  let watchId = null, last = null, distance = 0;
+  let points = JSON.parse(localStorage.getItem('pescaGpsTrackV13') || '[]');
+  const $ = id => document.getElementById(id);
+  const fmt = (v,d=5) => Number.isFinite(v) ? v.toFixed(d) : '—';
+  function hav(a,b){
+    const R=6371000,p=Math.PI/180,dLat=(b.lat-a.lat)*p,dLon=(b.lon-a.lon)*p;
+    const x=Math.sin(dLat/2)**2+Math.cos(a.lat*p)*Math.cos(b.lat*p)*Math.sin(dLon/2)**2;
+    return 2*R*Math.asin(Math.sqrt(x));
+  }
+  function update(pos){
+    const c=pos.coords, p={lat:c.latitude,lon:c.longitude,acc:c.accuracy??null,alt:c.altitude??null,speed:c.speed??null,heading:c.heading??null,ts:pos.timestamp||Date.now()};
+    if(last){const d=hav(last,p);if(d>=1&&d<1000)distance+=d;}
+    last=p; points.push(p); if(points.length>20000)points.shift();
+    localStorage.setItem('pescaGpsTrackV13',JSON.stringify(points));
+    $('gps-lat').textContent=fmt(p.lat,6); $('gps-lon').textContent=fmt(p.lon,6);
+    $('gps-acc').textContent=Number.isFinite(p.acc)?Math.round(p.acc)+' m':'—';
+    $('gps-alt').textContent=Number.isFinite(p.alt)?Math.round(p.alt)+' m':'—';
+    $('gps-speed').textContent=Number.isFinite(p.speed)&&p.speed>=0?(p.speed*3.6).toFixed(1)+' km/h':'—';
+    $('gps-heading').textContent=Number.isFinite(p.heading)&&p.heading>=0?Math.round(p.heading)+'°':'—';
+    $('gps-distance').textContent=distance<1000?Math.round(distance)+' m':(distance/1000).toFixed(2)+' km';
+    $('gps-points').textContent=points.length;
+    $('gps-status').textContent='GPS attivo • ultimo fix '+new Date(p.ts).toLocaleTimeString();
+  }
+  function error(err){
+    const m={1:'Permesso posizione negato. Abilita la posizione per PESCA GPS.',2:'Posizione non disponibile. Prova all’aperto con visuale libera del cielo.',3:'Timeout GPS. Sto continuando a cercare la posizione.'};
+    $('gps-status').textContent='⚠ '+(m[err.code]||'Errore GPS.');
+  }
+  $('gps-start').onclick=()=>{
+    if(!navigator.geolocation){$('gps-status').textContent='Geolocalizzazione non supportata.';return;}
+    if(watchId!==null)return;
+    $('gps-status').textContent='Ricerca posizione GPS…';
+    watchId=navigator.geolocation.watchPosition(update,error,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+    $('gps-start').disabled=true;$('gps-stop').disabled=false;
+  };
+  $('gps-stop').onclick=()=>{
+    if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+    watchId=null;$('gps-status').textContent='GPS fermo.';
+    $('gps-start').disabled=false;$('gps-stop').disabled=true;
+  };
+  $('gps-clear').onclick=()=>{
+    points=[];last=null;distance=0;localStorage.removeItem('pescaGpsTrackV13');
+    $('gps-distance').textContent='0 m';$('gps-points').textContent='0';$('gps-status').textContent='Traccia locale azzerata.';
+  };
+  $('gps-points').textContent=points.length;
+})();
+</script>
+
+</body></html>
